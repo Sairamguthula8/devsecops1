@@ -57,15 +57,34 @@ pipeline {
 	   }
 	   
 	stage('RunDASTUsingZAP') {
-          steps {
-		    withKubeConfig([credentialsId: 'kubelogin']) {
-				sh('zap.sh -cmd -quickurl http://$(kubectl get services/asgbuggy --namespace=devsecops -o json| jq -r ".status.loadBalancer.ingress[] | .hostname") -quickprogress -quickout ${WORKSPACE}/zap_report.html')
-				archiveArtifacts artifacts: 'zap_report.html'
-		    }
-	     }
-       } 
+    steps {
+        withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
 
+            sh '''
+            pkill -f zap || true
 
+            aws eks update-kubeconfig \
+              --name kubernetes-cluster \
+              --region us-east-1
 
-   }
+            kubectl get nodes
+            kubectl get svc -n devsecops
+
+            HOST=$(kubectl get svc asgbuggy \
+                -n devsecops \
+                -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+            echo "HOST=$HOST"
+
+            zap.sh -cmd \
+                -quickurl http://$HOST \
+                -quickprogress \
+                -quickout ${WORKSPACE}/zap_report.html
+            '''
+
+            archiveArtifacts 'zap_report.html'
+        }
+      }
+    }
+  }
 }
