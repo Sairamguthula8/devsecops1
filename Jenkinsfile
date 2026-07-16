@@ -77,6 +77,8 @@ pipeline {
             echo "HOST=$HOST"
 
             zap.sh -cmd \
+                -port 8090 \
+                -cmd \
                 -quickurl http://$HOST \
                 -quickprogress \
                 -quickout ${WORKSPACE}/zap_report.html
